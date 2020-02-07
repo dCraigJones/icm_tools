@@ -47,17 +47,17 @@ Link.DS <- All.Links$ds_node_id
 Link.IsPump <- !(is.na(match(Link.US,Pump.DS)))
 Link.IsOutfall <- !(is.na(match(Link.DS,Outfall)))
 
-Link <- cbind.data.frame(Link.US,Link.DS,Link.IsPump,Link.IsOutfall, rep(NA, length(Link.DS)))
+Link <- cbind.data.frame(Link.US,Link.DS,Link.IsPump,Link.IsOutfall, rep(NA, length(Link.DS)), stringsAsFactors = FALSE)
 colnames(Link) <- c("US", "DS", "IsPump", "IsOutfall", "DSPump")
 
 # Add ARV to Link Table
 ARV.US <- All.ARVs$us_node_id
 ARV.DS <- All.ARVs$ds_node_id
 
-ARV <- cbind.data.frame(ARV.US,ARV.DS,rep(FALSE, length(ARV.DS)),rep(FALSE, length(ARV.DS)), rep(NA, length(ARV.DS)))
+ARV <- cbind.data.frame(ARV.US,ARV.DS,rep(FALSE, length(ARV.DS)),rep(FALSE, length(ARV.DS)), rep(NA, length(ARV.DS)), stringsAsFactors = FALSE)
 colnames(ARV) <- c("US", "DS", "IsPump", "IsOutfall", "DSPump")
 
-Link <- rbind.data.frame(Link, ARV)
+Link <- rbind.data.frame(Link, ARV, stringsAsFactors = FALSE)
 
 # Build Pump Trace --------------------------------------------------------
 
@@ -93,28 +93,109 @@ for (i in 1:length(Link[,1])) {
 
 # link to subcatchment ----------------------------------------------------
 
-tmp <- left_join(All.Subcatchments, Link, by=c("node_id"="US")) %>% 
-  select(subcatchment_id, node_id, DSPump)
 
-Link %>% 
-  filter(IsPump==TRUE) %>% 
-  inner_join(
-      tmp %>% 
-      filter(is.na(DSPump))
-      ,by=c("DSPump"="node_id")
-  ) %>% 
-  distinct(subcatchment_id, DSPump) %>%
-  select(subcatchment_id, node_id=DSPump, DSPump=DSPump) %>%
-  right_join(tmp, by="subcatchment_id") %>% View()
-#Union DSPump.x with DSPump.y
+# Subcatchment connected to liftstations
+# node_at_ls <- All.Subcatchments %>% 
+#   inner_join(All.Nodes, by="node_id") %>% 
+#   filter(str_detect(asset_id, "LS-*")) %>%
+#   select(subcatchment_id, node_id, DSPump=node_id)
+# 
+# remain <- All.Subcatchments %>%
+#   filter(!(subcatchment_id %in% node_at_ls$subcatchment_id))
+# 
+# link_at_us <- remain %>%
+#   inner_join(Link, by=c("node_id"="US")) %>%
+#   select(subcatchment_id, node_id, DSPump, asset_id)
+# 
+# remain <- remain %>% 
+#   filter(!(subcatchment_id %in% link_at_us$subcatchment_id))
+# 
+# link_at_ds <- remain %>%
+#   inner_join(Link, by=c("node_id"="DS"))
+# 
+# remain <- remain %>% 
+#   filter(!(subcatchment_id %in% link_at_ds$subcatchment_id))
+# 
+# tmp <- bind_rows(node_at_ls, link_at_us, link_at_ds) %>%
+#   left_join(All.Nodes, by=c("DSPump"="node_id")) %>%
+#   filter(str_detect(asset_id, "LS-*"))
+# 
+# tmp %>% 
+#   filter(wastewater_profile==1 & population>0) %>%
+#   left_join(unit_flow_by_ls, by=c("asset_id"="ps")) %>%
+#   filter(!is.na(profile)) %>%
+#   select(subcatchment_id, profile) %>% count()
+#   
 
-#save(tmp, file="./temp/tmp.RData")
- 
 
+try <- All.Subcatchments %>% 
+  filter(wastewater_profile==1 & population > 0)
 
-# Use pumps for join on NA fields instead of Link
+count(try)
 
-All.Nodes %>% 
+node_at_ls <- try %>%
+inner_join(All.Nodes, by="node_id") %>% 
   filter(str_detect(asset_id, "LS-*")) %>%
-  select(node_id, asset_id) %>%
-  right_join(tmp, by=c("node_id"="DSPump")) %>% View()
+  mutate(DSPump=node_id)
+
+remain <- try %>%
+  filter(!(subcatchment_id %in% node_at_ls$subcatchment_id))
+
+link_at_us <- remain %>%
+  left_join(Link, by=c("node_id"="US"))
+
+remain <- remain %>% 
+  filter(!(subcatchment_id %in% link_at_us$subcatchment_id))
+
+tmp <- bind_rows(node_at_ls, link_at_us)
+
+tmp %>% 
+  select(subcatchment_id, DSPump) %>%
+  filter(!is.na(DSPump)) %>%
+  distinct() %>%
+  left_join(All.Nodes, by=c("DSPump"="node_id")) %>%
+  filter(str_detect(asset_id, "LS-*")) %>%
+  select(subcatchment_id, asset_id) %>%
+  left_join(unit_flow_by_ls, by=c("asset_id"="ps")) %>%
+  select(subcatchment_id, profile) %>%
+  filter(!is.na(profile))
+
+
+# 
+# 
+# 
+# 
+# 
+# 
+# # Subcatchment connected to outfalls
+# All.Subcatchments %>% inner_join(All.Nodes, by="node_id") %>% filter(node_type=="Outfall") %>% count()
+# 
+# tmp <- left_join(All.Subcatchments, Link, by=c("node_id"="US"))
+# 
+# a <- Link %>% 
+#   filter(IsPump==TRUE) %>% 
+#   inner_join(
+#       tmp %>% 
+#       filter(is.na(DSPump))
+#       ,by=c("DSPump"="node_id")
+#   ) %>% 
+#   distinct(subcatchment_id, DSPump) %>%
+#   select(subcatchment_id, node_id=DSPump, DSPump=DSPump) %>%
+#   right_join(tmp, by="subcatchment_id")
+# #Union DSPump.x with DSPump.y
+# 
+# #save(tmp, file="./temp/tmp.RData")
+# #load(file="./temp/tmp.RData")
+#  
+# inner_join(tmp, All.Nodes, by=c("DSPump"="node_id")) %>% count(asset_id) %>% View()
+# 
+# # Use pumps for join on NA fields instead of Link
+# 
+# All.Nodes %>% 
+#   filter(str_detect(asset_id, "LS-*")) %>%
+#   select(node_id, asset_id) %>%
+#   right_join(tmp, by=c("node_id"="DSPump")) %>% View()
+# 
+# 
+# 
+# All.Nodes %>% filter(str_detect(asset_id, "LS-*")) %>% distinct(node_id, asset_id)
