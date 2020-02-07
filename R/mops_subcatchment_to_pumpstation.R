@@ -1,5 +1,5 @@
 library(tidyverse)
-
+load("./data/unit_flow_by_ls.RData")
 
 # util --------------------------------------------------------------------
 
@@ -93,46 +93,12 @@ for (i in 1:length(Link[,1])) {
 
 # link to subcatchment ----------------------------------------------------
 
-
-# Subcatchment connected to liftstations
-# node_at_ls <- All.Subcatchments %>% 
-#   inner_join(All.Nodes, by="node_id") %>% 
-#   filter(str_detect(asset_id, "LS-*")) %>%
-#   select(subcatchment_id, node_id, DSPump=node_id)
-# 
-# remain <- All.Subcatchments %>%
-#   filter(!(subcatchment_id %in% node_at_ls$subcatchment_id))
-# 
-# link_at_us <- remain %>%
-#   inner_join(Link, by=c("node_id"="US")) %>%
-#   select(subcatchment_id, node_id, DSPump, asset_id)
-# 
-# remain <- remain %>% 
-#   filter(!(subcatchment_id %in% link_at_us$subcatchment_id))
-# 
-# link_at_ds <- remain %>%
-#   inner_join(Link, by=c("node_id"="DS"))
-# 
-# remain <- remain %>% 
-#   filter(!(subcatchment_id %in% link_at_ds$subcatchment_id))
-# 
-# tmp <- bind_rows(node_at_ls, link_at_us, link_at_ds) %>%
-#   left_join(All.Nodes, by=c("DSPump"="node_id")) %>%
-#   filter(str_detect(asset_id, "LS-*"))
-# 
-# tmp %>% 
-#   filter(wastewater_profile==1 & population>0) %>%
-#   left_join(unit_flow_by_ls, by=c("asset_id"="ps")) %>%
-#   filter(!is.na(profile)) %>%
-#   select(subcatchment_id, profile) %>% count()
-#   
-
-
+# extract only residential subcatchment with a non-zero population
 try <- All.Subcatchments %>% 
   filter(wastewater_profile==1 & population > 0)
 
-count(try)
 
+# assign DSPump to subcatchments directly connected to the liftstation
 node_at_ls <- try %>%
 inner_join(All.Nodes, by="node_id") %>% 
   filter(str_detect(asset_id, "LS-*")) %>%
@@ -141,15 +107,19 @@ inner_join(All.Nodes, by="node_id") %>%
 remain <- try %>%
   filter(!(subcatchment_id %in% node_at_ls$subcatchment_id))
 
+# assign DSPump to subcatchments using table from trace
 link_at_us <- remain %>%
   left_join(Link, by=c("node_id"="US"))
 
+# EXPECT count(remain)==0
 remain <- remain %>% 
   filter(!(subcatchment_id %in% link_at_us$subcatchment_id))
 
+# combine into one dataframe
 tmp <- bind_rows(node_at_ls, link_at_us)
 
-tmp %>% 
+# join to LS number
+export <- tmp %>% 
   select(subcatchment_id, DSPump) %>%
   filter(!is.na(DSPump)) %>%
   distinct() %>%
@@ -160,42 +130,4 @@ tmp %>%
   select(subcatchment_id, profile) %>%
   filter(!is.na(profile))
 
-
-# 
-# 
-# 
-# 
-# 
-# 
-# # Subcatchment connected to outfalls
-# All.Subcatchments %>% inner_join(All.Nodes, by="node_id") %>% filter(node_type=="Outfall") %>% count()
-# 
-# tmp <- left_join(All.Subcatchments, Link, by=c("node_id"="US"))
-# 
-# a <- Link %>% 
-#   filter(IsPump==TRUE) %>% 
-#   inner_join(
-#       tmp %>% 
-#       filter(is.na(DSPump))
-#       ,by=c("DSPump"="node_id")
-#   ) %>% 
-#   distinct(subcatchment_id, DSPump) %>%
-#   select(subcatchment_id, node_id=DSPump, DSPump=DSPump) %>%
-#   right_join(tmp, by="subcatchment_id")
-# #Union DSPump.x with DSPump.y
-# 
-# #save(tmp, file="./temp/tmp.RData")
-# #load(file="./temp/tmp.RData")
-#  
-# inner_join(tmp, All.Nodes, by=c("DSPump"="node_id")) %>% count(asset_id) %>% View()
-# 
-# # Use pumps for join on NA fields instead of Link
-# 
-# All.Nodes %>% 
-#   filter(str_detect(asset_id, "LS-*")) %>%
-#   select(node_id, asset_id) %>%
-#   right_join(tmp, by=c("node_id"="DSPump")) %>% View()
-# 
-# 
-# 
-# All.Nodes %>% filter(str_detect(asset_id, "LS-*")) %>% distinct(node_id, asset_id)
+#write.csv(export, "t:/dcj/subc.csv")
