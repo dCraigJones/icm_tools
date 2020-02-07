@@ -93,8 +93,24 @@ for (i in 1:length(Link[,1])) {
 
 # link to subcatchment ----------------------------------------------------
 
-tmp <- left_join(All.Subcatchments, Link, by=c("node_id"="US"))
-tmp %>% count(DSPump) %>% View()
+tmp <- left_join(All.Subcatchments, Link, by=c("node_id"="US")) %>% 
+  select(subcatchment_id, node_id, DSPump)
+
+Link %>% 
+  filter(IsPump==TRUE) %>% 
+  inner_join(
+      tmp %>% 
+      filter(is.na(DSPump))
+      ,by=c("DSPump"="node_id")
+  ) %>% 
+  distinct(subcatchment_id, DSPump) %>%
+  select(subcatchment_id, node_id=DSPump, DSPump=DSPump) %>%
+  right_join(tmp, by="subcatchment_id") %>% View()
+#Union DSPump.x with DSPump.y
+
+#save(tmp, file="./temp/tmp.RData")
+ 
+
 
 # Use pumps for join on NA fields instead of Link
 

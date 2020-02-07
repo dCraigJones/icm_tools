@@ -19,10 +19,11 @@ get_model_export <- function(filename) {
 
 
 # get model info ----------------------------------------------------------
-
-All.Links <- get_model_export("./data-ignore/mops/link_conduit.csv")
+All.Links <- get_model_export("t:/dcj/mops/link_conduit.csv")
+All.Pumps <- get_model_export("t:/dcj/mops/link_pump.csv")
+#All.Links <- get_model_export("./data-ignore/mops/link_conduit.csv")
 tbl.Links <- All.Links %>% group_by(ObjectTable) %>% nest()
-All.Pumps <- get_model_export("./data-ignore/mops/link_pump.csv")
+#All.Pumps <- get_model_export("./data-ignore/mops/link_pump.csv")
 tbl.Pumps <- All.Pumps %>% group_by(ObjectTable) %>% nest()
 export <- bind_rows(tbl.Links, tbl.Pumps)
 
