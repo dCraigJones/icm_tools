@@ -1,6 +1,8 @@
 library(dplyr)
 library(lubridate)
 library(pumpR)
+library(ggplot2); theme_set(theme_bw())
+library(stringr)
 
 
 min_pump_speed <- 25 #hz
@@ -117,10 +119,56 @@ calc_pump_flow <- function(scada, pump) {
   return(hq)
 }
 
+assign_scada_wo_columns <- function(tmp, level_correction_ft) {
+  tmp_col_names <- tolower(colnames(tmp))
+  
+  col_datetime <- which(str_detect(tmp_col_names, "datetime"))
+  col_level <- which(str_detect(tmp_col_names, "wll"))
+  col_header <- which(str_detect(tmp_col_names, "stfmp|press"))
+  col_p1 <- which(str_detect(tmp_col_names, "p1"))
+  col_p2 <- which(str_detect(tmp_col_names, "p2"))
+  col_p3 <- which(str_detect(tmp_col_names, "p3"))
+  col_p4 <- which(str_detect(tmp_col_names, "p4"))
+  
+  export <- assign_scada(tmp[,col_datetime]
+               , tmp[,col_level]
+               , tmp[,col_header]
+               , tmp[,col_p1]
+               , tmp[,col_p2]
+               , ifelse(length(col_p3)>0,tmp[,col_p3],0)
+               , ifelse(length(col_p4)>0,tmp[,col_p4],0)
+               , level_correction_ft
+  )
+  
+  return(export)
+  
+}
+
+
+calc_pump_flow_from_scada <- function(input, pump, level_correction_ft=0, FUN=dmy_hms) {
+  data <- load_scada(input, FUN)
+  
+  use <- assign_scada_wo_columns(data, level_correction_ft)
+  
+  use2 <- calc_pump_timesteps(use)
+  
+  # use2 %>% 
+  #   mutate(date=date(datetime)) %>% 
+  #   group_by(date) %>% 
+  #   #filter(n==1) %>%
+  #   count(n) %>%
+  #   ggplot(aes(x=date, y=nn)) +
+  #   geom_col(aes(fill=n))
+  
+  flow <- calc_pump_flow(use2,p)
+  
+  return(flow)
+  
+  
+}
+
 
 # Bay Harbour -------------------------------------------------------------
-
-
 
 p <- New.Pump(c(
   0,	145.0000,
@@ -132,29 +180,37 @@ p <- New.Pump(c(
   2400,	30.0000
 ))
 
-    data <- load_scada("./data-test/bay4568.csv")
-    
-    use <- assign_scada(data$datetime
-                        , data$wwl.east.bay4568_wllevel
-                        , data$wwl.east.bay4568_stfmp
-                        , data$wwl.east.bay4568_P1RUN
-                        , data$wwl.east.bay4568_P2RUN
-                        , data$wwl.east.bay4568_P3RUN
-                        ,
-                        , 18
-    )
-    
-    use2 <- calc_pump_timesteps(use)
-    
-    use2 %>% 
-      mutate(date=date(datetime)) %>% 
-      group_by(date) %>% 
-      #filter(n==1) %>%
-      count(n) %>%
-      ggplot(aes(x=date, y=nn)) +
-      geom_col(aes(fill=n))
-    
-    flow <- calc_pump_flow(use2,p)
+flow <- calc_pump_flow_from_scada("./data-test/bay4568.csv", p)
+
+
+# 
+# 
+# 
+#     data <- load_scada("./data-test/bay4568.csv")
+#     
+# 
+#     
+#     use <- assign_scada(data$datetime
+#                         , data$wwl.east.bay4568_wllevel
+#                         , data$wwl.east.bay4568_stfmp
+#                         , data$wwl.east.bay4568_P1RUN
+#                         , data$wwl.east.bay4568_P2RUN
+#                         , data$wwl.east.bay4568_P3RUN
+#                         ,
+#                         , 18
+#     )
+#     
+#     use2 <- calc_pump_timesteps(use)
+#     
+#     use2 %>% 
+#       mutate(date=date(datetime)) %>% 
+#       group_by(date) %>% 
+#       #filter(n==1) %>%
+#       count(n) %>%
+#       ggplot(aes(x=date, y=nn)) +
+#       geom_col(aes(fill=n))
+#     
+    #flow <- calc_pump_flow(use2,p)
     
     Draw.Graph(10000,2000,500, 150, 50, 10)
     Draw.VFD(p, 3)
@@ -190,29 +246,32 @@ p <- New.Pump(c(
       6039.33, 25.35787
     ))
 
-    data <- load_scada("./data-test/kin4140.csv")
-    
-    use <- assign_scada(data$datetime
-                        , data$wwl.west.kin4140_wllevel
-                        , data$wwl.west.kin4140_stfmp
-                        , data$wwl.west.kin4140_p1cSPD
-                        , data$wwl.west.kin4140_p2cSPD
-                        , data$wwl.west.kin4140_p3cSPD
-                        ,
-                        , 0
-    )
-    
-    use2 <- calc_pump_timesteps(use)
-    
-    use2 %>% 
-      mutate(date=date(datetime)) %>% 
-      group_by(date) %>% 
-      #filter(n==1) %>%
-      count(n) %>%
-      ggplot(aes(x=date, y=nn)) +
-      geom_col(aes(fill=n))
-    
-    flow <- calc_pump_flow(use2,p)
+    flow <- calc_pump_flow_from_scada("./data-test/kin4140.csv", p)
+    # 
+    # 
+    # data <- load_scada("./data-test/kin4140.csv")
+    # 
+    # use <- assign_scada(data$datetime
+    #                     , data$wwl.west.kin4140_wllevel
+    #                     , data$wwl.west.kin4140_stfmp
+    #                     , data$wwl.west.kin4140_p1cSPD
+    #                     , data$wwl.west.kin4140_p2cSPD
+    #                     , data$wwl.west.kin4140_p3cSPD
+    #                     ,
+    #                     , 0
+    # )
+    # 
+    # use2 <- calc_pump_timesteps(use)
+    # 
+    # use2 %>% 
+    #   mutate(date=date(datetime)) %>% 
+    #   group_by(date) %>% 
+    #   #filter(n==1) %>%
+    #   count(n) %>%
+    #   ggplot(aes(x=date, y=nn)) +
+    #   geom_col(aes(fill=n))
+    # 
+    # flow <- calc_pump_flow(use2,p)
     
     Draw.Graph(10000,2000,500, 150, 50, 10)
     Draw.VFD(p, 3)
