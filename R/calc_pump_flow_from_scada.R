@@ -160,9 +160,12 @@ calc_pump_flow_from_scada <- function(input, pump, level_correction_ft=0, FUN=dm
   #   ggplot(aes(x=date, y=nn)) +
   #   geom_col(aes(fill=n))
   
-  flow <- calc_pump_flow(use2,p)
+  flow <- calc_pump_flow(use2,pump)
   
-  return(flow)
+  export <- flow %>% right_join(use2, by="datetime")
+  
+  #return(flow)
+  return(export)
   
   
 }
